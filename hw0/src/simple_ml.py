@@ -77,7 +77,17 @@ def softmax_loss(Z, y):
         Average softmax loss over the sample.
     """
     ### BEGIN YOUR CODE
-    pass
+    
+    # softmax = e^(Z - Z_max) / \sigma(e^(Z - Z_max))
+    Z_max = np.max(Z, axis=1, keepdims=True)
+    exp_Z = np.exp(Z - Z_max)  # Subtract the max value from each logit for numerical stability
+    softmax_probs = exp_Z / np.sum(exp_Z, axis=1, keepdims=True)
+
+    #log-sum-exp
+    log_probs = -np.log(softmax_probs[np.arange(len(y)), y])
+    loss = np.mean(log_probs)
+
+    return loss
     ### END YOUR CODE
 
 
