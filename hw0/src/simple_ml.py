@@ -1,3 +1,5 @@
+import sys
+sys.path.append("src/")
 import struct
 import numpy as np
 import gzip
@@ -83,7 +85,7 @@ def softmax_loss(Z, y):
     exp_Z = np.exp(Z - Z_max)  # Subtract the max value from each logit for numerical stability
     softmax_probs = exp_Z / np.sum(exp_Z, axis=1, keepdims=True)
 
-    #log-sum-exp
+    #log-sum-exp : \ell_{\mathrm{softmax}}(z, y) = \log\sum_{i=1}^k \exp z_i - z_y.
     log_probs = -np.log(softmax_probs[np.arange(len(y)), y])
     loss = np.mean(log_probs)
 
@@ -110,7 +112,26 @@ def softmax_regression_epoch(X, y, theta, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    num_examples = X.shape[0]
+    num_classes = theta.shape[1]
+
+    for i in range(0, num_examples, batch):
+        X_batch = X[i:i+batch]
+        y_batch = y[i:i+batch]
+
+        # Compute logits
+        logits = X_batch @ theta
+
+        # Compute softmax probabilities
+        exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True))
+        probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+
+        # Compute gradient
+        probs[np.arange(len(y_batch)), y_batch] -= 1
+        grad = X_batch.T @ probs
+
+        # Update theta
+        theta -= (lr / len(y_batch)) * grad
     ### END YOUR CODE
 
 
@@ -137,7 +158,37 @@ def nn_epoch(X, y, W1, W2, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    num_examples = X.shape[0]
+
+    for i in range(0, num_examples, batch):
+        X_batch = X[i:i+batch]
+        y_batch = y[i:i+batch]
+
+        # Forward pass
+        Z1 = X_batch @ W1
+        A1 = np.maximum(Z1, 0)  # ReLU activation
+        logits = A1 @ W2
+
+        # Compute softmax probabilities
+        exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True))
+        probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+
+        # Backward pass
+        dlogits = probs.copy()
+        dlogits[np.arange(len(y_batch)), y_batch] -= 1
+        dlogits /= len(y_batch)
+
+        # Gradient for W2
+        grad_W2 = A1.T @ dlogits
+        
+        # Gradient for W1
+        dA1 = dlogits @ W2.T
+        dZ1 = dA1 * (Z1 > 0)  # ReLU derivative
+        grad_W1 = X_batch.T @ dZ1
+
+        # Update weights
+        W2 -= lr * grad_W2
+        W1 -= lr * grad_W1
     ### END YOUR CODE
 
 

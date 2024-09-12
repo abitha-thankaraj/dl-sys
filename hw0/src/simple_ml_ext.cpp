@@ -33,7 +33,58 @@ void softmax_regression_epoch_cpp(const float *X, const unsigned char *y,
      */
 
     /// BEGIN YOUR CODE
+    // Allocate memory for temporary arrays
+    float* logits = new float[batch * k];
+    float* grads = new float[n * k];
 
+    // Iterate over minibatches
+    for (size_t i = 0; i < m; i += batch) {
+        size_t current_batch_size = std::min(batch, m - i);
+
+        // Reset gradients
+        std::fill(grads, grads + n * k, 0.0f);
+
+        // Compute logits and softmax probabilities
+        for (size_t b = 0; b < current_batch_size; ++b) {
+            for (size_t j = 0; j < k; ++j) {
+                float logit = 0.0f;
+                for (size_t l = 0; l < n; ++l) {
+                    logit += X[(i + b) * n + l] * theta[l * k + j];
+                }
+                logits[b * k + j] = logit;
+            }
+
+            // Compute softmax probabilities
+            float max_logit = *std::max_element(logits + b * k, logits + (b + 1) * k);
+            float sum_exp = 0.0f;
+            for (size_t j = 0; j < k; ++j) {
+                logits[b * k + j] = std::exp(logits[b * k + j] - max_logit);
+                sum_exp += logits[b * k + j];
+            }
+            for (size_t j = 0; j < k; ++j) {
+                logits[b * k + j] /= sum_exp;
+            }
+
+            // Compute gradients
+            for (size_t j = 0; j < k; ++j) {
+                float indicator = (j == y[i + b]) ? 1.0f : 0.0f;
+                float diff = logits[b * k + j] - indicator;
+                for (size_t l = 0; l < n; ++l) {
+                    grads[l * k + j] += X[(i + b) * n + l] * diff;
+                }
+            }
+        }
+
+        // Update theta
+        float scale = lr / current_batch_size;
+        for (size_t j = 0; j < n * k; ++j) {
+            theta[j] -= scale * grads[j];
+        }
+    }
+
+    // Free allocated memory
+    delete[] logits;
+    delete[] grads;
     /// END YOUR CODE
 }
 
