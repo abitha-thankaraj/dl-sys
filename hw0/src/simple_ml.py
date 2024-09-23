@@ -50,6 +50,8 @@ def parse_mnist(image_filename, label_filename):
                 for MNIST will contain the values 0-9.
     """
     ### BEGIN YOUR CODE
+    image_filename = image_filename.replace("data", "/home/abitha/projects/dl-sys/hw1/data")
+    label_filename = label_filename.replace("data", "/home/abitha/projects/dl-sys/hw1/data")
     with gzip.open(label_filename, 'rb') as lbpath:
         lbpath.read(8)  # skip the magic number and number of items
         labels = np.frombuffer(lbpath.read(), dtype=np.uint8)

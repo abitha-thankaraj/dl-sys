@@ -6,7 +6,7 @@ import numpy as np
 
 import sys
 
-sys.path.append("python/")
+sys.path.append("/home/abitha/projects/dl-sys/hw1/python")
 import needle as ndl
 
 
@@ -33,7 +33,16 @@ def parse_mnist(image_filesname, label_filename):
                 for MNIST will contain the values 0-9.
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    with gzip.open(label_filename, 'rb') as lbpath:
+        lbpath.read(8)  # skip the magic number and number of items
+        labels = np.frombuffer(lbpath.read(), dtype=np.uint8)
+    
+    with gzip.open(image_filesname, 'rb') as imgpath:
+        imgpath.read(16)  # skip the magic number, number of items, rows, and columns
+        images = np.frombuffer(imgpath.read(), dtype=np.uint8).reshape(len(labels), 784)
+        images = images.astype(np.float32) / 255.0  # normalize to range [0.0, 1.0]
+    
+    return images, labels    
     ### END YOUR SOLUTION
 
 
@@ -54,7 +63,24 @@ def softmax_loss(Z, y_one_hot):
         Average softmax loss over the sample. (ndl.Tensor[np.float32])
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    # softmax = e^(Z - Z_max) / \sigma(e^(Z - Z_max))
+    # Compute exp(Z) for all logits
+    exp_Z = ndl.exp(Z)
+    
+    # Sum exp(Z) across classes for each example
+    sum_exp_Z = ndl.summation(exp_Z, axes=(1,))
+    
+    # Compute log of the sum of exponentials
+    log_sum_exp = ndl.log(sum_exp_Z)
+    
+    # Compute Z[y] (elementwise multiplication and sum)
+    Z_y = ndl.summation(Z * y_one_hot, axes=(1,))
+    
+    # Compute the loss for each example
+    losses = log_sum_exp - Z_y
+    
+    # Return the average loss
+    return ndl.summation(losses) / Z.shape[0]
     ### END YOUR SOLUTION
 
 
@@ -83,7 +109,33 @@ def nn_epoch(X, y, W1, W2, lr=0.1, batch=100):
     """
 
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    num_examples = X.shape[0]
+
+    for i in range(0, num_examples, batch):
+        X_batch = ndl.Tensor(X[i:i+batch])
+        y_batch = y[i:i+batch]
+
+        # Forward pass
+        Z1 = X_batch @ W1
+        A1 = ndl.relu(Z1)
+        logits = A1 @ W2
+
+        # Compute loss
+        y_one_hot = ndl.Tensor(np.eye(W2.shape[1])[y_batch])
+        loss = softmax_loss(logits, y_one_hot)
+
+        # Compute gradients
+        loss.backward()
+
+        # Update weights
+        W1 = ndl.Tensor(W1.numpy() - lr * W1.grad.numpy())
+        W2 = ndl.Tensor(W2.numpy() - lr * W2.grad.numpy())
+
+        # Reset gradients
+        W1.grad = None
+        W2.grad = None
+
+    return W1, W2
     ### END YOUR SOLUTION
 
 
