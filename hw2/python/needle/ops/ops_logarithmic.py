@@ -10,12 +10,17 @@ import numpy as array_api
 class LogSoftmax(TensorOp):
     def compute(self, Z):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        max_Z = array_api.max(Z, axis=-1, keepdims=True)
+        exp_Z = array_api.exp(Z - max_Z)
+        sum_exp_Z = array_api.sum(exp_Z, axis=-1, keepdims=True)
+        return Z - max_Z - array_api.log(sum_exp_Z)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        Z = node.inputs[0]
+        softmax = exp(logsoftmax(Z))
+        return out_grad - softmax * out_grad.sum(axes=(-1,), keepdims=True)
         ### END YOUR SOLUTION
 
 
@@ -29,12 +34,34 @@ class LogSumExp(TensorOp):
 
     def compute(self, Z):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        maxz = array_api.max(Z, axis=self.axes, keepdims=1)
+        ret = array_api.log(array_api.exp(Z - maxz).sum(axis=self.axes, keepdims=1)) + maxz
+        if self.axes:   
+            out_shape = [size for i, size in enumerate(Z.shape) if i not in self.axes]
+        else:
+            out_shape = ()
+        ret.resize(tuple(out_shape))
+        return ret
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        Z = node.inputs[0]
+        if self.axes:
+            shape = [1] * len(Z.shape)
+            s = set(self.axes)
+            j = 0
+            for i in range(len(shape)):
+                if i not in s:
+                    shape[i] = node.shape[j]
+                    j += 1
+            node_new = node.reshape(shape)
+            grad_new = out_grad.reshape(shape)
+        else:
+            node_new = node
+            grad_new = out_grad
+        # print(node.shape, Z.shape, node_new.shape, out_grad.shape)
+        return grad_new * exp(Z - node_new)
         ### END YOUR SOLUTION
 
 
