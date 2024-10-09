@@ -238,36 +238,23 @@ class Summation(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        x = node.inputs[0]
-
-        # this is the shape we will use to reshape out_grad to
-        # essentially the shape of the input
-        new_shape = list(x.shape)
-
-        # However, the summed over axes will have size = 1
-        # along these axes
-        if self.axes is not None:
-          axes = self.axes
-
-        # in this case we sum over all the axes and return a single number
-        # so need to broadcast it back to the original shape
-        else:
-          axes = [i for i in range(len(x.shape))]
-
-        for axis in axes:
-          new_shape[axis] = 1
-
-        new_shape = tuple(new_shape)
-
-        # First we reshape to insert new axis into the shape
-        grad = reshape(a=out_grad, shape=new_shape)
-
-        # Now we broadcast back to input shape
-        grad = broadcast_to(a=grad, shape=x.shape)
+        input_tensor, = node.inputs
+        input_shape = input_tensor.shape
+        out_shape = out_grad.shape
         
-        return grad
-        ### END YOUR SOLUTION
+        # comparing input and output shapes -> reshape
+        reshape_shape = []
+        out_idx = 0
+        for dim in input_shape:
+            if out_idx < len(out_shape) and dim == out_shape[out_idx]:
+                reshape_shape.append(dim)
+                out_idx += 1
+            else:
+                reshape_shape.append(1)
 
+        # Reshape the output gradient to the new shape -> broadcast to input shape
+        return broadcast_to(reshape(out_grad, reshape_shape), input_shape)
+        ### END YOUR SOLUTION
 
 def summation(a, axes=None):
     return Summation(axes)(a)
