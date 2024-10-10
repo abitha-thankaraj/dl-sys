@@ -14,12 +14,15 @@ class MNISTDataset(Dataset):
         super().__init__(transforms)    
         self.images, self.labels = parse_mnist(image_filename, label_filename)
         # Images to B x H x W x C
-        self.images = self.images.reshape(-1, 28, 28, 1)
+        # self.images = self.images.reshape(-1, 28, 28, 1)
         ### END YOUR SOLUTION
 
     def __getitem__(self, index) -> object:
-        ### BEGIN YOUR SOLUTION        
-        return self.apply_transforms(self.images[index]), self.labels[index]
+        ### BEGIN YOUR SOLUTION
+        if self.transforms is not None:        
+            return self.apply_transforms(self.images[index].reshape((28, 28, 1))), self.labels[index]
+        else:
+            return self.images[index], self.labels[index]
         ### END YOUR SOLUTION
 
     def __len__(self) -> int:
@@ -52,8 +55,13 @@ def parse_mnist(image_filename, label_filename):
                 for MNIST will contain the values 0-9.
     """
     ### BEGIN YOUR CODE
-    image_filename = image_filename.replace("data", "/home/abitha/projects/dl-sys/hw1/data")
-    label_filename = label_filename.replace("data", "/home/abitha/projects/dl-sys/hw1/data")
+    #local folder
+    if "./data" in image_filename:
+        image_filename = image_filename.replace("./data", "/home/abitha/projects/dl-sys/hw2/data")
+        label_filename = label_filename.replace("./data", "/home/abitha/projects/dl-sys/hw2/data")
+    elif "data/" in image_filename:
+        image_filename = image_filename.replace("data/", "/home/abitha/projects/dl-sys/hw2/data/")
+        label_filename = label_filename.replace("data/", "/home/abitha/projects/dl-sys/hw2/data/")
     with gzip.open(label_filename, 'rb') as lbpath:
         lbpath.read(8)  # skip the magic number and number of items
         labels = np.frombuffer(lbpath.read(), dtype=np.uint8)

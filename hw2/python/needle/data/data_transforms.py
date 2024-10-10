@@ -4,7 +4,6 @@ class Transform:
     def __call__(self, x):
         raise NotImplementedError
 
-
 class RandomFlipHorizontal(Transform):
     def __init__(self, p = 0.5):
         self.p = p
@@ -25,7 +24,6 @@ class RandomFlipHorizontal(Transform):
         return img
         ### END YOUR SOLUTION
 
-
 class RandomCrop(Transform):
     def __init__(self, padding=3):
         self.padding = padding
@@ -40,21 +38,6 @@ class RandomCrop(Transform):
         """
         shift_x, shift_y = np.random.randint(low=-self.padding, high=self.padding+1, size=2)
         ### BEGIN YOUR SOLUTION
-        H, W, C = img.shape
-        
-        # Zero pad
-        padded_img = np.pad(img, ((self.padding, self.padding), (self.padding, self.padding), (0, 0)), mode='constant')
-        
-        # Calculate the starting points for cropping
-        start_x = self.padding + shift_x
-        start_y = self.padding + shift_y
-        
-        # Crop stays within the padded image bounds
-        start_x = max(0, min(start_x, 2*self.padding))
-        start_y = max(0, min(start_y, 2*self.padding))
-        
-        # Crop
-        cropped_img = padded_img[start_x:start_x+H, start_y:start_y+W, :]
-        
-        return cropped_img
+        img = np.pad(img, ((self.padding, self.padding), (self.padding, self.padding), (0, 0)), mode='constant')
+        return img[self.padding + shift_x:img.shape[0] - self.padding + shift_x, self.padding + shift_y : img.shape[1] - self.padding + shift_y, :]
         ### END YOUR SOLUTION

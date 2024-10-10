@@ -79,15 +79,15 @@ class EWisePow(TensorOp):
         
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        lhs, rhs = node.inputs
-        b_grad = power(lhs, rhs) * log(lhs) * out_grad
-        a_grad = rhs * power(lhs, add_scalar(rhs, -1)) * out_grad
-        return a_grad, b_grad
+        # raise NotImplementedError()
+        a, b = node.inputs
+        a_grad = b * power(a, add_scalar(b, -1))
+        b_grad = power(a, b) * log(a)
+        return out_grad * a_grad, out_grad * b_grad
         ### END YOUR SOLUTION
 
 def power(a, b):
     return EWisePow()(a, b)
-
 
 class PowerScalar(TensorOp):
     """Op raise a tensor to an (integer) power."""
@@ -110,7 +110,6 @@ class PowerScalar(TensorOp):
 def power_scalar(a, scalar):
     return PowerScalar(scalar)(a)
 
-
 class EWiseDiv(TensorOp):
     """Op to element-wise divide two nodes."""
 
@@ -131,7 +130,6 @@ class EWiseDiv(TensorOp):
 def divide(a, b):
     return EWiseDiv()(a, b)
 
-
 class DivScalar(TensorOp):
     def __init__(self, scalar):
         self.scalar = scalar
@@ -143,8 +141,7 @@ class DivScalar(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        division_factor = 1.0 / self.scalar
-        return out_grad * division_factor
+        return out_grad * 1.0 / self.scalar,
         ### END YOUR SOLUTION
 
 
@@ -199,29 +196,36 @@ class BroadcastTo(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return array_api.broadcast_to(a, shape=self.shape)
+        # raise NotImplementedError()
+        return array_api.broadcast_to(a, self.shape)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        x = node.inputs[0]
-
-        broadcasted_dims = []
-        for i in range(len(out_grad.shape)):
-          if i >= len(x.shape) or out_grad.shape[i] != x.shape[i]:
-            broadcasted_dims.append(i)
-        
-        # immutable var
-        broadcasted_dims = tuple(broadcasted_dims)
-
-        # sum over broadcast dims
-        grad = summation(a=out_grad, axes=broadcasted_dims)
-
-        # reshape to original input shape
-        grad = reshape(a=grad, shape=x.shape)
-        return grad
+        return broadcast_grad(out_grad, node.inputs[0].shape)
         ### END YOUR SOLUTION
 
+def broadcast_grad(broadcasted, input_shape):
+    out_shape = broadcasted.shape
+    axis_to_sum = []
+    
+    # Calculate the offset in dimensions between broadcasted and input shapes
+    offset = len(out_shape) - len(input_shape)
+    
+    # Identify the axes to sum over
+    for i in range(len(out_shape)):
+        # If the dimension exists in input_shape, and it matches, skip
+        if i >= offset and input_shape[i - offset] == out_shape[i]:
+            continue
+        # Otherwise, it's a broadcasted dimension that we need to sum over
+        axis_to_sum.append(i)
+      
+    # Sum over the broadcasted axes
+    if axis_to_sum:
+        broadcasted = summation(broadcasted, axes=tuple(axis_to_sum))
+        
+    # Reshape the result to match the input shape
+    return reshape(broadcasted, input_shape)
 
 def broadcast_to(a, shape):
     return BroadcastTo(shape)(a)
@@ -238,22 +242,12 @@ class Summation(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        input_tensor, = node.inputs
-        input_shape = input_tensor.shape
-        out_shape = out_grad.shape
-        
-        # comparing input and output shapes -> reshape
-        reshape_shape = []
-        out_idx = 0
-        for dim in input_shape:
-            if out_idx < len(out_shape) and dim == out_shape[out_idx]:
-                reshape_shape.append(dim)
-                out_idx += 1
-            else:
-                reshape_shape.append(1)
-
-        # Reshape the output gradient to the new shape -> broadcast to input shape
-        return broadcast_to(reshape(out_grad, reshape_shape), input_shape)
+        new_shape = list(node.inputs[0].shape)
+        axes = range(len(new_shape)) if self.axes is None else self.axes
+        for axis in axes:
+            new_shape[axis] = 1
+        out_grad = reshape(out_grad, new_shape)
+        return broadcast_to(out_grad, node.inputs[0].shape),
         ### END YOUR SOLUTION
 
 def summation(a, axes=None):
@@ -289,7 +283,6 @@ class MatMul(TensorOp):
 def matmul(a, b):
     return MatMul()(a, b)
 
-
 class Negate(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
@@ -314,8 +307,7 @@ class Log(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        x = node.inputs[0]
-        return out_grad * power_scalar(x, -1)
+        return out_grad * power(node.inputs[0], -1)
         ### END YOUR SOLUTION
 
 
@@ -331,8 +323,7 @@ class Exp(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        x = node.inputs[0]
-        return exp(x) * out_grad
+        return out_grad * exp(node.inputs[0])
         ### END YOUR SOLUTION
 
 
@@ -348,14 +339,11 @@ class ReLU(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        output = node.realize_cached_data().copy()
-        output[output > 0] = 1
-        
-        grad = multiply(out_grad, Tensor(output))
-        return grad
+        relu_grad = node.realize_cached_data().copy()
+        relu_grad[relu_grad > 0] = 1.
+        return multiply(out_grad, Tensor(relu_grad))
         ### END YOUR SOLUTION
 
 
 def relu(a):
     return ReLU()(a)
-

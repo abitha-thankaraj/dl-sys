@@ -36,37 +36,33 @@ class LogSumExp(TensorOp):
 
     def compute(self, Z):
         ### BEGIN YOUR SOLUTION
-        maxz = array_api.max(Z, axis=self.axes, keepdims=1)
-        log_sum_exp = array_api.log(array_api.exp(Z - maxz).sum(axis=self.axes, keepdims=1)) + maxz
-        if self.axes:
-            out_shape = [size for i, size in enumerate(Z.shape) if i not in self.axes]
-        else:
-            # scalar
-            out_shape = ()
-        log_sum_exp.resize(tuple(out_shape))
-        return log_sum_exp
+        max_Z = array_api.max(Z, self.axes, keepdims=True) 
+        return array_api.log(array_api.sum(array_api.exp(Z - max_Z), self.axes)) + array_api.max(Z, self.axes)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
         Z = node.inputs[0]
-        
+            
         if self.axes:
-            # Create a shape with 1s in the axes that were reduced
-            shape = [1 if i in self.axes else size for i, size in enumerate(Z.shape)]
-            # Reshape node and gradient to match this shape for broadcasting
-            node_reshaped = node.reshape(shape)
-            out_grad_reshaped = out_grad.reshape(shape)
+            new_shape = [1] * len(Z.shape)
+            s = set(self.axes)
+            j = 0
+            for i in range(len(Z.shape)):
+                if i not in s:
+                    new_shape[i] = node.shape[j]
+                    j += 1
+            # print("new_shape", new_shape)
+            grad_new = reshape(out_grad, new_shape)
+            node_new = reshape(node, new_shape)
+        # scalar
         else:
-            # No need to reshape if no axes were reduced
-            node_reshaped = node
-            out_grad_reshaped = out_grad
+            node_new = node
+            grad_new = out_grad
 
-        # Gradient of log-sum-exp is exp(Z - node) * out_grad
-        return out_grad_reshaped * exp(Z - node_reshaped)
+        final = grad_new * exp(node.inputs[0] - node_new)
+        return final
+
         ### END YOUR SOLUTION
-
-
 def logsumexp(a, axes=None):
     return LogSumExp(axes=axes)(a)
-
