@@ -1,6 +1,10 @@
 import sys
 
 sys.path.append("./python")
+sys.path.append("/home/abitha/projects/dl-sys/hw2/python")
+sys.path.append("/home/abitha/projects/dl-sys/hw2/python/needle")
+sys.path.append("/home/abitha/projects/dl-sys/hw2/apps")
+
 import numpy as np
 import needle as ndl
 import needle.nn as nn
