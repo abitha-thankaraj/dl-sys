@@ -1,6 +1,11 @@
+import sys
+sys.path.append("/home/abitha/projects/dl-sys/hw3/python")
+import os
+os.environ["NEEDLE_BACKEND"] = "nd"
 import numpy as np
 import pytest
 import mugrade
+
 import needle as ndl
 from needle import backend_ndarray as nd
 
