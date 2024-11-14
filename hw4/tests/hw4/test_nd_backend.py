@@ -1,5 +1,5 @@
 import sys
-sys.path.append('./python')
+sys.path.append('/home/abitha/projects/dl-sys/hw4/python')
 import itertools
 import numpy as np
 import pytest

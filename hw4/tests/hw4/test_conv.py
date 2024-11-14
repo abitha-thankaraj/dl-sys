@@ -1,5 +1,5 @@
 import sys
-sys.path.append('./python')
+sys.path.append('/home/abitha/projects/dl-sys/hw4/python')
 import numpy as np
 import pytest
 from needle import backend_ndarray as nd
@@ -672,7 +672,7 @@ def submit_resnet9():
     np.random.seed(1)
     model = ResNet9(device=device, dtype="float32")
     out = one_iter_of_cifar10_training(dataloader, model, niter=2, opt=ndl.optim.Adam(model.parameters(), lr=0.01, weight_decay=0.0001), device=device)
-    MugradeSubmit(ndl.Tensor(list(out)))
+    MugradeSubmit(ndl.Tensor(np.array(list(out), dtype=object)))
 
 
 if __name__ == "__main__":
