@@ -347,9 +347,11 @@ class ReLU(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        relu_grad = node.realize_cached_data().copy()
-        relu_grad[relu_grad > 0] = 1.
-        return multiply(out_grad, Tensor(relu_grad))
+        out = node.realize_cached_data()
+        return out_grad * Tensor(out > 0, device=out_grad.device)
+        # relu_grad = node.realize_cached_data().copy()
+        # relu_grad[relu_grad > 0] = 1.
+        # return multiply(out_grad, Tensor(relu_grad))
         ### END YOUR SOLUTION
 
 
@@ -414,6 +416,7 @@ def stack(args, axis):
     return Stack(axis)(make_tuple(*args))
 
 
+
 class Split(TensorTupleOp):
     def __init__(self, axis: int):
         """
@@ -426,13 +429,31 @@ class Split(TensorTupleOp):
 
     def compute(self, A):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        n_arr = A.shape[self.axis]
+
+        #calculate shapes per slice
+        subtensor_shapes = []
+        for index in range(len(A.shape)):
+          if index != self.axis:
+            subtensor_shapes.append(A.shape[index])
+
+        slices = [slice(0, end) for end in A.shape]
+
+        # split the tensor
+        subtensors = []
+        for i in range(n_arr):
+          slices[self.axis] = slice(i, i + 1)
+          subtensor = A[tuple(slices)].compact().reshape(tuple(subtensor_shapes))
+          subtensors.append(subtensor)
+
+        return tuple(subtensors)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return stack(out_grad, self.axis)
         ### END YOUR SOLUTION
+
 
 
 def split(a, axis):
@@ -477,8 +498,7 @@ class Dilate(TensorOp):
         # Init new array with zeros
         dilated_array = a.device.full(new_shape, 0)
 
-        # define the slices, to replace the elements in dilated_array
-        # with elements from the actual array
+        # define the slices, to replace the elements in dilated_array with elements from the actual array
         slices = [slice(0, new_shape[index]) for index in range(len(new_shape))]
         for index in range(len(self.axes)):
           axis = self.axes[index]

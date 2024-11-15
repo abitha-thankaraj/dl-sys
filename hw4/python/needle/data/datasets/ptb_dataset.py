@@ -25,7 +25,11 @@ class Dictionary(object):
         Returns the word's unique ID.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if word not in self.word2idx:
+          self.word2idx[word] = len(self.idx2word)
+          self.idx2word.append(word)
+
+        return self.word2idx[word]
         ### END YOUR SOLUTION
 
     def __len__(self):
@@ -33,7 +37,7 @@ class Dictionary(object):
         Returns the number of unique words in the dictionary.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return len(self.idx2word)
         ### END YOUR SOLUTION
 
 
@@ -60,7 +64,23 @@ class Corpus(object):
         ids: List of ids
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        id_list = []
+
+        num_lines = 0
+        with open(path, 'r') as f:
+          for line in f:
+            num_lines += 1
+            if max_lines is not None and num_lines > max_lines:
+              break
+
+            words = line.split()
+            for word in words:
+              word_id = self.dictionary.add_word(word=word)
+              id_list.append(word_id)
+
+            id_list.append(self.dictionary.add_word(word="<eos>"))
+
+        return id_list
         ### END YOUR SOLUTION
 
 
@@ -81,7 +101,13 @@ def batchify(data, batch_size, device, dtype):
     Returns the data as a numpy array of shape (nbatch, batch_size).
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    num_data_final = (len(data) // batch_size) * batch_size
+    data = np.array(data)
+    data = data[0 : num_data_final]
+
+    # reshape to make columns of data
+    data = np.transpose(np.reshape(data, newshape=(-1, len(data) // batch_size)))
+    return data
     ### END YOUR SOLUTION
 
 
@@ -105,5 +131,16 @@ def get_batch(batches, i, bptt, device=None, dtype=None):
     target - Tensor of shape (bptt*bs,) with cached data as NDArray
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    num_rows = batches.shape[0]
+
+    # Edge case: final batch - and a full batch cannot be formed
+    if i + bptt > num_rows - 1:
+      data = batches[i : num_rows - 1, :]
+      target = batches[i + 1: num_rows, :].flatten()
+
+    else:
+      data = batches[i : i + bptt, :]
+      target = batches[i + 1: i + 1 + bptt, :].flatten()
+
+    return Tensor(data, device=device, dtype=dtype), Tensor(target, device=device, dtype=dtype)
     ### END YOUR SOLUTION
