@@ -755,3 +755,26 @@ def sum(a, axis=None, keepdims=False):
 
 def flip(a, axes):
     return a.flip(axes)
+
+def matmul(a, b):
+    return a @ b
+
+def subtract(a, b):
+    return a - b
+
+def multiply(a, b):
+  return a * b
+
+def divide(a, b):
+  return a / b
+
+def power(a, b):
+  return a ** b
+
+def swapaxes(a, axis0, axis1):
+  axes = [i for i in range(len(a.shape))]
+  axes[axis0], axes[axis1] = axis1, axis0
+  return a.permute(axes)
+
+def summation(a, axis=None, keepdims=False):
+    return a.sum(axis=axis, keepdims=keepdims)

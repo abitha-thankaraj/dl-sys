@@ -238,7 +238,14 @@ class Summation(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return array_api.sum(a, axis=self.axes)
+        if ((isinstance(self.axes, list) or isinstance(self.axes, tuple))):
+          axes = sorted(self.axes)
+          for index in range(len(axes) - 1, -1, -1):
+            axis = axes[index]
+            a = a.sum(axis=axis)
+          return a
+        
+        return array_api.summation(a, axis=self.axes)        
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -525,12 +532,54 @@ class Conv(TensorOp):
 
     def compute(self, A, B):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # Pad A
+        A = A.pad(((0, 0), (self.padding, self.padding), (self.padding, self.padding), (0, 0)))
+        
+        # Get shapes + strides
+        N, H, W, C_in = A.shape
+        K, _, _, C_out = B.shape
+        Ns, Hs, Ws, Cs = A.strides
+        
+        # Output dimensions
+        # https://stackoverflow.com/questions/53580088/calculate-the-output-size-in-convolution-layer
+        inner_dim = K * K * C_in
+        out_H = (H-K+1) // self.stride
+        out_W = (W-K+1) // self.stride
+
+        # the im2col trick used in lecture, using strided
+        A = A.as_strided(
+          shape=(N, out_H, out_W, K, K, C_in),
+          strides=(Ns, Hs * self.stride, Ws * self.stride, Hs, Ws, Cs)
+        ).compact().reshape((N * out_H * out_W, inner_dim))
+        B = B.compact().reshape((K * K * C_in, C_out))
+
+        # convolution as matrix multiplication
+        out = A @ B
+        out = out.compact().reshape((N, out_H, out_W, C_out))
+        return out
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # retrieve the shapes
+        X, W = node.inputs[0], node.inputs[1]
+        K, _, _, _ = W.shape
+
+        # if stride, add dilation
+        if self.stride > 1:
+            out_grad = dilate(out_grad, (1, 2), self.stride - 1)
+
+        # X_grad
+        W_prime = transpose(flip(W, (0, 1)), (2, 3)) 
+        X_grad = conv(out_grad, W_prime, padding=(K - 1 - self.padding))
+
+        # W_grad
+        X_prime = transpose(X, (0, 3))
+        grad_prime = transpose(transpose(out_grad, (0, 1)), (1, 2))
+        W_grad = conv(X_prime, grad_prime, padding=self.padding)
+        W_grad = transpose(transpose(W_grad, (0, 1)), (1, 2))
+
+        return X_grad, W_grad
         ### END YOUR SOLUTION
 
 
