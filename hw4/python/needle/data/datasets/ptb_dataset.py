@@ -105,7 +105,6 @@ def batchify(data, batch_size, device, dtype):
     data = np.array(data)
     data = data[0 : num_data_final]
 
-    # reshape to make columns of data
     data = np.transpose(np.reshape(data, newshape=(-1, len(data) // batch_size)))
     return data
     ### END YOUR SOLUTION
