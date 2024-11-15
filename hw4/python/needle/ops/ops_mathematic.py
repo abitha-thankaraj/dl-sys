@@ -252,6 +252,7 @@ class Summation(TensorOp):
         ### BEGIN YOUR SOLUTION
         new_shape = list(node.inputs[0].shape)
         axes = range(len(new_shape)) if self.axes is None else self.axes
+        axes = [self.axes] if isinstance(self.axes, Number) else self.axes
         for axis in axes:
             new_shape[axis] = 1
         out_grad = reshape(out_grad, new_shape)
@@ -275,14 +276,14 @@ class MatMul(TensorOp):
         B_grad = matmul(transpose(A), out_grad)
 
         if len(A.shape) < len(A_grad.shape):
-          broadcasted_dims = [i for i in range(len(A_grad.shape) - len(A.shape))]
-          broadcasted_dims = tuple(broadcasted_dims)
-          A_grad = summation(a=A_grad, axes=broadcasted_dims)
+          broadcast_dims = [i for i in range(len(A_grad.shape) - len(A.shape))]
+          broadcast_dims = tuple(broadcast_dims)
+          A_grad = summation(a=A_grad, axes=broadcast_dims)
 
         if len(B.shape) < len(B_grad.shape):
-          broadcasted_dims = [i for i in range(len(B_grad.shape) - len(B.shape))]
-          broadcasted_dims = tuple(broadcasted_dims)
-          B_grad = summation(a=B_grad, axes=broadcasted_dims)
+          broadcast_dims = [i for i in range(len(B_grad.shape) - len(B.shape))]
+          broadcast_dims = tuple(broadcast_dims)
+          B_grad = summation(a=B_grad, axes=broadcast_dims)
 
         return A_grad, B_grad
         ### END YOUR SOLUTION
@@ -347,8 +348,10 @@ class ReLU(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        out = node.realize_cached_data()
+        out = node.inputs[0].realize_cached_data()
         return out_grad * Tensor(out > 0, device=out_grad.device)
+
+        # return out_grad * Tensor(out > 0, device=out_grad.device)
         # relu_grad = node.realize_cached_data().copy()
         # relu_grad[relu_grad > 0] = 1.
         # return multiply(out_grad, Tensor(relu_grad))
