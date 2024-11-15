@@ -103,7 +103,7 @@ def test_attention_layer(batch_size, seq_len, input_dim, num_head, dim_head, cau
     )])
 
     labels_path = (
-        "./tests/hw4_extra/data/" + 
+        "/home/abitha/projects/dl-sys/hw4/tests/hw4_extra/data/" + 
         "test_attention_layer-{}.npy"
         .format(current_input_id))
 

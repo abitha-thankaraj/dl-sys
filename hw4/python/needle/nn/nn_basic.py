@@ -79,6 +79,46 @@ class Identity(Module):
         return x
 
 
+# class Linear(Module):
+#     def __init__(
+#         self, in_features, out_features, bias=True, device=None, dtype="float32"
+#     ):
+#         super().__init__()
+#         self.in_features = in_features
+#         self.out_features = out_features
+
+#         ### BEGIN YOUR SOLUTION
+#         self.use_bias = bias
+#         self.weight = Parameter(
+#           init.kaiming_uniform(
+#             fan_in=self.in_features, 
+#             fan_out=self.out_features,
+#             dtype=dtype,
+#             requires_grad=True,
+#             device=device,
+#           )
+#         )
+
+#         if self.use_bias:
+#           self.bias = Parameter(
+#             init.kaiming_uniform(
+#               fan_in=self.out_features, 
+#               fan_out=1,
+#               dtype=dtype,
+#               requires_grad=True,
+#               device=device,
+#             ).transpose()
+#           )
+#         ### END YOUR SOLUTION
+
+#     def forward(self, X: Tensor) -> Tensor:
+#         ### BEGIN YOUR SOLUTION
+#         y = X.matmul(self.weight)
+#         if self.use_bias:
+#           y += self.bias.broadcast_to(y.shape)
+#         return y
+#         ### END YOUR SOLUTION
+
 class Linear(Module):
     def __init__(
         self, in_features, out_features, bias=True, device=None, dtype="float32"
@@ -88,35 +128,18 @@ class Linear(Module):
         self.out_features = out_features
 
         ### BEGIN YOUR SOLUTION
-        self.use_bias = bias
-        self.weight = Parameter(
-          init.kaiming_uniform(
-            fan_in=self.in_features, 
-            fan_out=self.out_features,
-            dtype=dtype,
-            requires_grad=True,
-            device=device,
-          )
-        )
-
-        if self.use_bias:
-          self.bias = Parameter(
-            init.kaiming_uniform(
-              fan_in=self.out_features, 
-              fan_out=1,
-              dtype=dtype,
-              requires_grad=True,
-              device=device,
-            ).transpose()
-          )
+        self.weight = Parameter(init.kaiming_uniform(in_features, out_features, device=device, dtype=dtype))
+            # Add transpose to make it compatible with the forward pass
+        self.bias = Parameter(init.kaiming_uniform(out_features, 1, device=device, dtype=dtype).transpose()) if bias else None
         ### END YOUR SOLUTION
 
     def forward(self, X: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        y = X.matmul(self.weight)
-        if self.use_bias:
-          y += self.bias.broadcast_to(y.shape)
-        return y
+        # X : mxn; weight: nxp; bias: 1xp
+        out = X.matmul(self.weight)
+        if self.bias:
+            out += ops.broadcast_to(self.bias, (*X.shape[:-1], self.out_features))
+        return out
         ### END YOUR SOLUTION
 
 
@@ -266,67 +289,24 @@ class LayerNorm1d(Module):
         self.dim = dim
         self.eps = eps
         ### BEGIN YOUR SOLUTION
-        self.weight = Parameter(
-          init.ones(
-            dim, 
-            dtype=dtype, 
-            device=device, 
-            requires_grad=True,
-          )
-        )
-
-        self.bias = Parameter(
-          init.zeros(
-            dim, 
-            dtype=dtype, 
-            device=device, 
-            requires_grad=True,
-          )
-        )
+        self.w = Parameter(init.ones(dim, device=device, dtype=dtype))
+        self.b = Parameter(init.zeros(dim, device=device, dtype=dtype))
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        batch_size, dim_data = x.shape
-        assert dim_data == self.dim
+        mean = ops.summation(x, axes=(1,)).reshape((x.shape[0], 1)) / x.shape[1]
+        mean = ops.broadcast_to(mean, x.shape)
+        var = ops.summation((x - mean) ** 2, axes=(1,)).reshape((x.shape[0], 1)) / x.shape[1]
+        var = ops.broadcast_to(var, x.shape)
 
-        # sum over the dimension of x
-        sum_x = ops.summation(a=x, axes=(1,))
-        mean_x = sum_x / dim_data
+        x_hat = (x - mean) / ops.power_scalar(var + self.eps, 0.5)
 
-        # broadcast back to the shape of x
-        mean_x = ops.reshape(a=mean_x, shape=(batch_size, 1))
-        mean_x = ops.broadcast_to(a=mean_x, shape=x.shape)
+        broadcast_w = ops.broadcast_to(self.w, x.shape)
+        broadcast_b = ops.broadcast_to(self.b, x.shape)
 
-        # calculate var, over the dimension of x
-        var_x = ops.power_scalar(
-          a=(x - mean_x), 
-          scalar=2,
-        )
-        var_x = ops.summation(var_x, axes=(1,)) / dim_data
-
-        # broadcast to the same dimension as x
-        var_x = ops.reshape(a=var_x, shape=(batch_size, 1))
-        var_x = ops.broadcast_to(a=var_x, shape=x.shape)
-
-        # we calculate the hadamard product, so 
-        # need to broadcast
-        w_broadcast = ops.broadcast_to(
-          a=self.weight, 
-          shape=mean_x.shape,
-        )
-        bias_broadcast = ops.broadcast_to(
-          a=self.bias,
-          shape=mean_x.shape,
-        )
-        
-        out = w_broadcast * (x - mean_x) 
-        out /= ops.power_scalar(
-          a=(var_x + self.eps),
-          scalar=0.5,
-        )
-        return out + bias_broadcast
-        ### END YOUR SOLUTION
+        return broadcast_w * x_hat + broadcast_b
+        ## END YOUR SOLUTION
 
 
 class Dropout(Module):
@@ -349,9 +329,7 @@ class Dropout(Module):
           out = x * dropout_mask / (1.0 - self.p)
 
         else:
-          # dropout is not used during evaluation
           out = x
-
         return out
         ### END YOUR SOLUTION
 

@@ -212,7 +212,34 @@ class AttentionLayer(Module):
         result = None
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        q_norm = self.prenorm_q(q.reshape((batch_size * queries_len, q_dim)))
+        k_norm = self.prenorm_k(k.reshape((batch_size * keys_values_len, q_dim)))
+        v_norm = self.prenorm_v(v.reshape((batch_size * keys_values_len, v_dim)))
+
+        w_q = self.q_projection(q_norm)
+        # (B * keys_values_len, d * head) 
+        w_k = self.k_projection(k_norm)
+        # (B * keys_values_len, d * head)
+        w_v = self.v_projection(v_norm) 
+
+        w_q = w_q.reshape((batch_size, queries_len, self.num_head, self.dim_head))
+        w_k = w_k.reshape((batch_size, keys_values_len, self.num_head, self.dim_head))
+        w_v = w_v.reshape((batch_size, keys_values_len, self.num_head, self.dim_head))
+
+        # (B, num_head, queries_len, d)
+        w_q = w_q.transpose(axes=(1, 2)) 
+        # (B, num_head, keys_values_len, d)
+        w_k = w_k.transpose(axes=(1, 2)) 
+        # (B, num_head, keys_values_len, d)
+        w_v = w_v.transpose(axes=(1, 2)) 
+
+        # (B, num_head, queries_len, d)
+        out, probs = self.attn(w_q, w_k, w_v)
+        # import ipdb; ipdb.set_trace() 
+        # (B, queries_len, d * head)
+        out = out.transpose(axes=(1, 2)).reshape((batch_size * queries_len, self.num_head * self.dim_head)) 
+        # (B, queries_len, out_dim)
+        result = self.out_projection(out).reshape((batch_size, queries_len, self.out_features)) 
         ### END YOUR SOLUTION
 
         return result
@@ -239,7 +266,26 @@ class TransformerLayer(Module):
         self.dtype = dtype
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        super().__init__()
+
+        self.device = device
+        self.dtype = dtype
+        self.q_features = q_features
+
+        self.attn_layer = AttentionLayer(
+            q_features=q_features,
+            num_head=num_head,
+            dim_head=dim_head,
+            dropout=dropout,
+            causal=causal,
+            device=device,
+            dtype=dtype,
+        )
+        self.norm = LayerNorm1d(q_features, device=device, dtype=dtype)
+        self.linear1 = Linear(q_features, hidden_size, device=device, dtype=dtype)
+        self.linear2 = Linear(hidden_size, q_features, device=device, dtype=dtype)
+        self.dropout = Dropout(dropout)
+        self.relu = ReLU()
         ### END YOUR SOLUTION
 
     def forward(
@@ -255,7 +301,13 @@ class TransformerLayer(Module):
         batch_size, seq_len, x_dim = x.shape
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        x = x + self.dropout(self.attn_layer(x))
+
+        y = self.norm(x.reshape((batch_size * seq_len, x_dim)))
+        y = self.dropout(self.relu(self.linear1(y)))
+        y = self.dropout(self.linear2(y))
+
+        x = x + y.reshape((batch_size, seq_len, x_dim))
         ### END YOUR SOLUTION
 
         return x
@@ -286,7 +338,19 @@ class Transformer(Module):
         self.batch_first = batch_first
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.pos_embed = Embedding(sequence_len, embedding_size, device=device, dtype=dtype)
+        self.transformer_layers = Sequential(*[
+            TransformerLayer(
+                embedding_size,
+                num_head=num_head,
+                dim_head=dim_head,
+                hidden_size=hidden_size,
+                dropout=dropout,
+                causal=causal,
+                device=device,
+                dtype=dtype,
+            ) for _ in range(num_layers)
+        ])
         ### END YOUR SOLUTION
 
     def forward(
@@ -297,8 +361,20 @@ class Transformer(Module):
         if not self.batch_first:
             x = ops.transpose(x, axes=(0, 1))
 
+        
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        batch_size, seq_len, x_dim = x.shape
+
+        ts = np.arange(seq_len).reshape(seq_len, 1)
+        ts = ndarray.array(ts, device=self.device).broadcast_to((seq_len, batch_size))
+        ts = Tensor(ts, device=self.device, dtype=self.dtype)
+
+
+        pos_embedding = self.pos_embed(ts) 
+        pos_embedding = ops.transpose(pos_embedding, axes=(0, 1)) 
+
+        x = x + pos_embedding 
+        x = self.transformer_layers(x)
         ### END YOUR SOLUTION
 
         if not self.batch_first:
