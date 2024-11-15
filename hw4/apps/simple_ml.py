@@ -6,7 +6,10 @@ import numpy as np
 
 import sys
 
-sys.path.append("python/")
+sys.path.append('/home/abitha/projects/dl-sys/hw4/python')
+sys.path.append('/home/abitha/projects/dl-sys/hw4')
+
+
 import needle as ndl
 
 import needle.nn as nn

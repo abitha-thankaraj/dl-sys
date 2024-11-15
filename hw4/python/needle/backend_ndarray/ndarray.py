@@ -247,7 +247,17 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if prod(self.shape) != prod(new_shape):
+            raise ValueError("Product of shapes must be equal. Original shape {}. New shape {}".format(self.shape, new_shape))
+        if not self.is_compact():
+            raise ValueError("Matrix must be compact")
+        return NDArray.make(
+            shape=new_shape,
+            strides=NDArray.compact_strides(new_shape),
+            device=self.device,
+            handle=self._handle,
+            offset=self._offset
+        )
         ### END YOUR SOLUTION
 
     def permute(self, new_axes):
@@ -272,7 +282,24 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # Verify new_axes is valid
+        if len(new_axes) != len(self.shape):
+            raise ValueError(f"Length of new_axes {len(new_axes)} must match array dimensions {len(self.shape)}")
+        if sorted(new_axes) != list(range(len(self.shape))):
+            raise ValueError(f"new_axes {new_axes} must be a permutation of {tuple(range(len(self.shape)))}")
+            
+        # Create new shape and strides by applying the permutation
+        new_shape = tuple(self.shape[i] for i in new_axes)
+        new_strides = tuple(self.strides[i] for i in new_axes)
+        
+        # Return new array with permuted shape/strides but same memory
+        return NDArray.make(
+            shape=new_shape,
+            strides=new_strides,
+            device=self.device,
+            handle=self._handle,
+            offset=self._offset
+        )
         ### END YOUR SOLUTION
 
     def broadcast_to(self, new_shape):
@@ -296,7 +323,41 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # Handle case where new_shape is an integer
+        if isinstance(new_shape, int):
+            new_shape = (new_shape,)
+        new_shape = tuple(new_shape)
+        
+        # Check that new shape is compatible for broadcasting
+        if len(new_shape) < len(self.shape):
+            raise ValueError(f"Can't broadcast array of shape {self.shape} to {new_shape}")
+            
+        # Left-pad current shape with ones to match new_shape length
+        curr_shape = (1,) * (len(new_shape) - len(self.shape)) + self.shape
+        curr_strides = (0,) * (len(new_shape) - len(self.shape)) + self.strides
+        
+        # Verify broadcasting is possible
+        for i in range(len(new_shape)):
+            if curr_shape[i] != 1 and curr_shape[i] != new_shape[i]:
+                raise ValueError(
+                    f"Can't broadcast shape {self.shape} to {new_shape}. "
+                    f"Dimension {i} must be equal or 1, got {curr_shape[i]} != {new_shape[i]}"
+                )
+        
+        # Create new strides - use 0 stride for broadcasted dimensions (size 1)
+        new_strides = tuple(
+            curr_strides[i] if curr_shape[i] != 1 else 0
+            for i in range(len(new_shape))
+        )
+        
+        # Return new array with broadcast shape and adjusted strides
+        return NDArray.make(
+            shape=new_shape,
+            strides=new_strides,
+            device=self.device,
+            handle=self._handle,
+            offset=self._offset
+        )
         ### END YOUR SOLUTION
 
     ### Get and set elements
@@ -363,7 +424,27 @@ class NDArray:
         assert len(idxs) == self.ndim, "Need indexes equal to number of dimensions"
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        new_shape, new_strides, new_offset = [], [], self._offset
+
+
+        for i, sl in enumerate(idxs):
+            #size of slice  = (stop - start) / step
+            size = (sl.stop - sl.start) // sl.step
+            new_shape.append(size)
+            
+            # New stride = old stride * step
+            new_strides.append(self._strides[i] * sl.step)
+            
+            # Update offset based on start_pos of slice
+            new_offset += self._strides[i] * sl.start
+
+        return NDArray.make(
+            shape=tuple(new_shape),
+            strides=tuple(new_strides),
+            device=self.device,
+            handle=self._handle,
+            offset=new_offset
+        )
         ### END YOUR SOLUTION
 
     def __setitem__(self, idxs, other):
@@ -573,7 +654,27 @@ class NDArray:
         Note: compact() before returning.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if not isinstance(axes, tuple) or len(axes) > len(self.shape):
+          raise ValueError("Given axes is not supported for flipping!")
+
+        # compute offset
+        offset = 0
+        for index in range(len(axes)):
+          offset += self.strides[axes[index]] * (self.shape[axes[index]] - 1)
+
+        # compute negatives strides
+        strides = list(self.strides)
+        for index in range(len(axes)):
+          strides[axes[index]] *= -1
+
+        return NDArray.make(
+          shape=self.shape,
+          strides=tuple(strides),
+          device=self.device,
+          handle=self._handle,
+          offset=offset,
+        ).compact()
+
         ### END YOUR SOLUTION
 
     def pad(self, axes):
@@ -583,7 +684,28 @@ class NDArray:
         axes = ( (0, 0), (1, 1), (0, 0)) pads the middle axis with a 0 on the left and right side.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if not isinstance(axes, tuple) or len(axes) != len(self.shape):
+          raise ValueError("Axes not supported for padding!")
+
+        # zero init
+        n_shape = []
+        for dim_index in range(len(self.shape)):
+          dim_size = self.shape[dim_index] + axes[dim_index][0] + axes[dim_index][1]
+          n_shape.append(dim_size)
+
+        n_shape = tuple(n_shape)
+        padded_array = self.device.full(n_shape, 0)
+
+        # put elements of old array into new array
+        slices = []
+        for dim_index in range(len(self.shape)):
+          start = axes[dim_index][0]
+          end = axes[dim_index][0] + self.shape[dim_index]
+          slices.append(slice(start, end))
+
+        padded_array[tuple(slices)] = self
+        
+        return padded_array
         ### END YOUR SOLUTION
 
 def array(a, dtype="float32", device=None):
