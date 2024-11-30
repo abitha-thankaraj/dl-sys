@@ -5,7 +5,6 @@ import numpy as np
 from . import ndarray_backend_numpy
 from . import ndarray_backend_cpu
 
-
 # math.prod not in Python 3.7
 def prod(x):
     return reduce(operator.mul, x, 1)
@@ -60,10 +59,17 @@ def cuda():
     """Return cuda device"""
     try:
         from . import ndarray_backend_cuda
-
         return BackendDevice("cuda", ndarray_backend_cuda)
     except ImportError:
         return BackendDevice("cuda", None)
+
+def triton():
+    """Return triton device"""
+    try:
+        from . import ndarray_backend_triton
+        return BackendDevice("triton", ndarray_backend_triton)
+    except ImportError:
+        return BackendDevice("triton", None)
 
 
 def cpu_numpy():

@@ -14,6 +14,7 @@ if BACKEND == "nd":
         cpu,
         cpu_numpy,
         default_device,
+        triton,
         BackendDevice as Device,
     )
 
