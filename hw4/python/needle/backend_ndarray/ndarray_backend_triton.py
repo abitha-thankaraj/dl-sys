@@ -60,3 +60,13 @@ def ewise_setitem(a, out, shape, strides, offset):
     )
     view[:] = a.array.reshape(shape)
     cp.cuda.Device().synchronize()
+
+def scalar_setitem(size, val, out, shape, strides, offset):
+    # Copy scalar value to strided view
+    view = cp.lib.stride_tricks.as_strided(
+        out.array[offset:],
+        shape=shape,
+        strides=tuple(s * out.array.dtype.itemsize for s in strides)
+    )
+    view[:] = val
+    cp.cuda.Device().synchronize()
