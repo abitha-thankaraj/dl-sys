@@ -70,3 +70,78 @@ def scalar_setitem(size, val, out, shape, strides, offset):
     )
     view[:] = val
     cp.cuda.Device().synchronize()
+
+def ewise_add(a, b, out):
+    out.array[:] = a.array + b.array
+
+
+def scalar_add(a, val, out):
+    out.array[:] = a.array + val
+
+
+def ewise_mul(a, b, out):
+    out.array[:] = a.array * b.array
+
+
+def scalar_mul(a, val, out):
+    out.array[:] = a.array * val
+
+
+def ewise_div(a, b, out):
+    out.array[:] = a.array / b.array
+
+
+def scalar_div(a, val, out):
+    out.array[:] = a.array / val
+
+
+def scalar_power(a, val, out):
+    out.array[:] = a.array**val
+
+
+def ewise_maximum(a, b, out):
+    out.array[:] = cp.maximum(a.array, b.array)
+
+
+def scalar_maximum(a, val, out):
+    out.array[:] = cp.maximum(a.array, val)
+
+
+def ewise_eq(a, b, out):
+    out.array[:] = (a.array == b.array).astype(cp.float32)
+
+
+def scalar_eq(a, val, out):
+    out.array[:] = (a.array == val).astype(cp.float32)
+
+
+def ewise_ge(a, b, out):
+    out.array[:] = (a.array >= b.array).astype(cp.float32)
+
+
+def scalar_ge(a, val, out):
+    out.array[:] = (a.array >= val).astype(cp.float32)
+
+
+def ewise_log(a, out):
+    out.array[:] = cp.log(a.array)
+
+
+def ewise_exp(a, out):
+    out.array[:] = cp.exp(a.array)
+
+
+def ewise_tanh(a, out):
+    out.array[:] = cp.tanh(a.array)
+
+
+def matmul(a, b, out, m, n, p):
+    out.array[:] = (a.array.reshape(m, n) @ b.array.reshape(n, p)).reshape(-1)
+
+
+def reduce_max(a, out, reduce_size):
+    out.array[:] = a.array[:].reshape(-1, reduce_size).max(axis=1)
+
+
+def reduce_sum(a, out, reduce_size):
+    out.array[:] = a.array[:].reshape(-1, reduce_size).sum(axis=1)
