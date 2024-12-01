@@ -10,20 +10,13 @@ import needle as ndl
 from needle import backend_ndarray as nd
 
 
-# _DEVICES = [
+# _DEVICES1 = [
 #     nd.cpu(),
 #     pytest.param(
 #         nd.cuda(), marks=pytest.mark.skipif(not nd.cuda().enabled(), reason="No GPU")
 #     ),
 # ]
 
-
-# _DEVICES = [
-#     nd.cpu(),
-#     pytest.param(
-#         nd.triton(), marks=pytest.mark.skipif(not nd.triton().enabled(), reason="No GPU")
-#     ),
-# ]
 
 _DEVICES = [
     nd.cpu(),
