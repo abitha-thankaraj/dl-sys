@@ -72,8 +72,10 @@ def scalar_ge(a, val, out):
 def scalar_power(a, val, out):
     scalar_op(a.array, val, out.array, operation="power")
 
-# def ewise_maximum(a, b, out):
-#     ewise_op(a.array, b.array, out.array, operation="maximum")
+def ewise_maximum(a, b, out):
+    ewise_op(a.array, b.array, out.array, operation="maximum")
+def scalar_maximum(a, val, out):
+    scalar_op(a.array, val, out.array, operation="maximum") 
 
 def ewise_log(a, out):
     ewise_unary_op(a.array, out.array, operation="log")
@@ -134,7 +136,8 @@ def ewise_op_kernel(
              tl.where(op_type == 6, x < y,
              tl.where(op_type == 7, x >= y,
              tl.where(op_type == 8, x <= y,
-                     x - y)))))))))  # default case is subtraction
+             tl.where(op_type == 10, tl.maximum(x, y),
+                     x))))))))))  # default case is identity
     
     # Store the result
     tl.store(output_ptr + offsets, output, mask=mask)
@@ -220,6 +223,7 @@ def ewise_op(x: torch.Tensor, y: torch.Tensor, output:torch.Tensor, operation: s
         "less": 6,
         "greater_equal": 7,
         "less_equal": 8,
+        "maximum": 10
  }
     op_code = op_map.get(operation.lower(), 0)  # default to add if unknown operation
     n_elements = output.numel()
@@ -257,7 +261,8 @@ def scalar_op_kernel(
              tl.where(op_type == 7, x >= y,
              tl.where(op_type == 8, x <= y,
             tl.where(op_type == 9, tl.exp(tl.log(x) * y),
-                     x - y))))))))))  # default case is subtraction
+            tl.where(op_type == 10, tl.maximum(x, y),
+                     x )))))))))))  # default case is identity
     
     # Store the result
     tl.store(output_ptr + offsets, output, mask=mask)
@@ -292,7 +297,8 @@ def scalar_op(x: torch.Tensor, y:tp.Any , output:torch.Tensor, operation: str = 
         "less": 6,
         "greater_equal": 7,
         "less_equal": 8,
-        "power": 9
+        "power": 9,
+        "maximum": 10
 
     }
     op_code = op_map.get(operation.lower(), 0)  # default to add if unknown operation
