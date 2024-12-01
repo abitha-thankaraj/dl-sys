@@ -308,6 +308,3 @@ def scalar_op(x: torch.Tensor, y:tp.Any , output:torch.Tensor, operation: str = 
     grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']),)
     scalar_op_kernel[grid](x, y, output, n_elements, op_code, BLOCK_SIZE=1024)  
     return output
-
-
-
