@@ -44,33 +44,6 @@ def fill_kernel(
 
   # Fill the array with the specified value where mask is True
   tl.store(out_ptr + offs, val, mask=mask)
-
-
-@triton.jit
-def convert_index_to_location(
-  index,
-  offset,
-  strides_ptr,
-  shape_ptr,
-  num_dims,
-):
-  final_index = offset
-  current_size = 1
-  prev_size = 1
-
-  for i in range(MAX_SHAPE_DIMS - 1, -1, -1):
-    if i < num_dims:
-      shape_i = tl.load(shape_ptr + i, mask=True)
-
-      current_size = prev_size * shape_i
-      dim_index = (index % current_size) // prev_size
-      
-      strides_i = tl.load(strides_ptr + i, mask=True)
-
-      final_index += dim_index * strides_i
-      prev_size = current_size
-
-  return final_index
   
 
 @triton.jit
@@ -142,9 +115,3 @@ def modify_structure_kernel(
 
       else:
         assert False
-
-
-
-
-
-

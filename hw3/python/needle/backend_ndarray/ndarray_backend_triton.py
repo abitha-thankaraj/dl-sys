@@ -1,7 +1,4 @@
 import triton
-import triton.language as tl
-from typing import Optional, Tuple, List
-import ctypes
 import numpy as np
 
 
