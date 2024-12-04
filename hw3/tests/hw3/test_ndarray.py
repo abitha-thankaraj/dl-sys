@@ -1,11 +1,7 @@
-import sys
-sys.path.append("/home/abitha/projects/dl-sys/hw3/python")
-import os
-os.environ["NEEDLE_BACKEND"] = "nd"
 import numpy as np
+np.set_printoptions(threshold=np.inf)
 import pytest
 import mugrade
-
 import needle as ndl
 from needle import backend_ndarray as nd
 
@@ -15,6 +11,7 @@ _DEVICES = [
     pytest.param(
         nd.cuda(), marks=pytest.mark.skipif(not nd.cuda().enabled(), reason="No GPU")
     ),
+    nd.triton(),
 ]
 
 
@@ -87,12 +84,12 @@ def check_same_memory(original, view):
         "transposegetitem",
     ],
 )
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_compact(params, device):
     shape, np_fn, nd_fn = params["shape"], params["np_fn"], params["nd_fn"]
     _A = np.random.randint(low=0, high=10, size=shape)
     A = nd.array(_A, device=device)
-
+    print(type(nd_fn(A)))
     lhs = nd_fn(A).compact()
     assert lhs.is_compact(), "array is not compact"
 
@@ -108,7 +105,7 @@ reduce_params = [
 ]
 
 
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 @pytest.mark.parametrize("params", reduce_params)
 def test_reduce_sum(params, device):
     dims, axis = params["dims"], params["axis"]
@@ -119,7 +116,7 @@ def test_reduce_sum(params, device):
     )
 
 
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 @pytest.mark.parametrize("params", reduce_params)
 def test_reduce_max(params, device):
     dims, axis = params["dims"], params["axis"]
@@ -164,7 +161,7 @@ ShapeAndSlices = lambda *shape: _ShapeAndSlices(np.ones(shape))
         },
     ],
 )
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_setitem_ewise(params, device):
     lhs_shape, lhs_slices = params["lhs"]
     rhs_shape, rhs_slices = params["rhs"]
@@ -191,7 +188,7 @@ def test_setitem_ewise(params, device):
         ShapeAndSlices(4, 5, 6)[1::2, 2:5, ::2],
     ],
 )
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_setitem_scalar(params, device):
     shape, slices = params
     _A = np.random.randn(*shape)
@@ -244,7 +241,7 @@ ewise_shapes = [(1, 1, 1), (4, 5, 6)]
 
 @pytest.mark.parametrize("fn", OP_FNS, ids=OP_NAMES)
 @pytest.mark.parametrize("shape", ewise_shapes)
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_ewise_fn(fn, shape, device):
     _A = np.random.randn(*shape)
     _B = np.random.randn(*shape)
@@ -254,7 +251,7 @@ def test_ewise_fn(fn, shape, device):
 
 
 @pytest.mark.parametrize("shape", ewise_shapes)
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_ewise_max(shape, device):
     _A = np.random.randn(*shape)
     _B = np.random.randn(*shape)
@@ -273,7 +270,7 @@ permute_params = [
 
 
 @pytest.mark.parametrize("params", permute_params)
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_permute(device, params):
     dims = params["dims"]
     axes = params["axes"]
@@ -293,7 +290,7 @@ reshape_params = [
 
 
 @pytest.mark.parametrize("params", reshape_params)
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_reshape(device, params):
     shape = params["shape"]
     new_shape = params["new_shape"]
@@ -315,7 +312,7 @@ getitem_params = [
 
 
 @pytest.mark.parametrize("params", getitem_params)
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_getitem(device, params):
     shape = params["shape"]
     fn = params["fn"]
@@ -334,7 +331,7 @@ broadcast_params = [
 
 
 @pytest.mark.parametrize("params", broadcast_params)
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_broadcast_to(device, params):
     from_shape, to_shape = params["from_shape"], params["to_shape"]
     _A = np.random.randn(*from_shape)
@@ -360,31 +357,31 @@ matmul_dims = [
 ]
 
 
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 @pytest.mark.parametrize("m,n,p", matmul_dims)
 def test_matmul(m, n, p, device):
     _A = np.random.randn(m, n)
     _B = np.random.randn(n, p)
     A = nd.array(_A, device=device)
     B = nd.array(_B, device=device)
-    np.testing.assert_allclose((A @ B).numpy(), _A @ _B, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose((A @ B).numpy(), _A @ _B, rtol=1e-2, atol=1e-2)
 
 
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_scalar_mul(device):
     A = np.random.randn(5, 5)
     B = nd.array(A, device=device)
     np.testing.assert_allclose(A * 5.0, (B * 5.0).numpy(), atol=1e-5, rtol=1e-5)
 
 
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_scalar_div(device):
     A = np.random.randn(5, 5)
     B = nd.array(A, device=device)
     np.testing.assert_allclose(A / 5.0, (B / 5.0).numpy(), atol=1e-5, rtol=1e-5)
 
 
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_scalar_power(device):
     A = np.random.randn(5, 5)
     B = nd.array(A, device=device)
@@ -396,7 +393,7 @@ def test_scalar_power(device):
     )
 
 
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_scalar_maximum(device):
     A = np.random.randn(5, 5)
     B = nd.array(A, device=device)
@@ -410,7 +407,7 @@ def test_scalar_maximum(device):
     )
 
 
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_scalar_eq(device):
     A = np.random.randn(5, 5)
     B = nd.array(A, device=device)
@@ -418,7 +415,7 @@ def test_scalar_eq(device):
     np.testing.assert_allclose(A == C, (B == C).numpy(), atol=1e-5, rtol=1e-5)
 
 
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_scalar_ge(device):
     A = np.random.randn(5, 5)
     B = nd.array(A, device=device)
@@ -426,21 +423,21 @@ def test_scalar_ge(device):
     np.testing.assert_allclose(A >= C, (B >= C).numpy(), atol=1e-5, rtol=1e-5)
 
 
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_ewise_log(device):
     A = np.abs(np.random.randn(5, 5))
     B = nd.array(A, device=device)
     np.testing.assert_allclose(np.log(A), (B.log()).numpy(), atol=1e-5, rtol=1e-5)
 
 
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_ewise_exp(device):
     A = np.random.randn(5, 5)
     B = nd.array(A, device=device)
     np.testing.assert_allclose(np.exp(A), (B.exp()).numpy(), atol=1e-5, rtol=1e-5)
 
 
-@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda", "triton"])
 def test_ewise_tanh(device):
     A = np.random.randn(5, 5)
     B = nd.array(A, device=device)

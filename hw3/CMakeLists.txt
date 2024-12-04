@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(needle C CXX)
-# cmake_policy(SET CMP0146 OLD)
-set(CMAKE_CUDA_ARCHITECTURES "75 80 86 89")
+cmake_policy(SET CMP0146 OLD)
 
 # find correct version of Python
 execute_process(COMMAND python3-config --prefix
@@ -87,3 +86,38 @@ if(CUDA_FOUND)
 
 endif()
 
+###############################
+### CUDA BACKEND FOR Triton ###
+###############################
+find_package(CUDA)
+if(CUDA_FOUND)
+  message(STATUS "Found cuda, building cuda backend for triton")
+
+  include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
+  list(APPEND LINKER_LIBS ${CUDA_CUDART_LIBRARY})
+
+  # invoke nvidia smi to detect if we really have a GPU
+  execute_process(COMMAND "nvidia-smi" ERROR_QUIET  RESULT_VARIABLE NV_RET)
+  if(NV_RET EQUAL "0")
+    CUDA_SELECT_NVCC_ARCH_FLAGS(ARCH_FLAGS Auto)
+  else()
+    # set to 3.7 the flag of K80
+    CUDA_SELECT_NVCC_ARCH_FLAGS(ARCH_FLAGS 3.7)
+  endif()
+
+  # set arch flags properly
+  CUDA_ADD_LIBRARY(triton_array MODULE src/triton_array.cu OPTIONS ${ARCH_FLAGS})
+
+  target_link_libraries(triton_array ${LINKER_LIBS})
+  pybind11_extension(triton_array)
+  pybind11_strip(triton_array)
+
+  # directly output to ffi folder
+  set_target_properties(triton_array
+    PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python/needle/backend_ndarray
+    CXX_VISIBILITY_PRESET "hidden"
+    CUDA_VISIBILITY_PRESET "hidden"
+)
+
+endif()

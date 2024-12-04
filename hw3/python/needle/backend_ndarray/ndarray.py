@@ -57,13 +57,21 @@ class BackendDevice:
 
 
 def cuda():
-    """Return cuda device"""
-    try:
-        from . import ndarray_backend_cuda
+  """Return cuda device"""
+  try:
+    from . import ndarray_backend_cuda
+    return BackendDevice("cuda", ndarray_backend_cuda)
+  except ImportError:
+    return BackendDevice("cuda", None)
 
-        return BackendDevice("cuda", ndarray_backend_cuda)
-    except ImportError:
-        return BackendDevice("cuda", None)
+
+def triton():
+  """Return Triton device"""
+  try:
+    from . import ndarray_backend_triton
+    return BackendDevice("triton", ndarray_backend_triton)
+  except ImportError:
+    return BackendDevice("triton", None)
 
 
 def cpu_numpy():
@@ -82,7 +90,7 @@ def default_device():
 
 def all_devices():
     """return a list of all available devices"""
-    return [cpu(), cuda(), cpu_numpy()]
+    return [cpu(), cuda(), cpu_numpy(), triton()]
 
 
 class NDArray:
@@ -247,16 +255,18 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        if prod(self.shape) != prod(new_shape):
-            raise ValueError("Product of shapes must be equal. Original shape {}. New shape {}".format(self.shape, new_shape))
+        if prod(self._shape) != prod(new_shape):
+          raise ValueError(f"Given new_shape {new_shape} is not compatible with current shape {self._shape}")
+
         if not self.is_compact():
-            raise ValueError("Matrix must be compact")
+          raise ValueError(f"Underlying matrix is not compact.")
+
         return NDArray.make(
-            shape=new_shape,
-            strides=NDArray.compact_strides(new_shape),
-            device=self.device,
-            handle=self._handle,
-            offset=self._offset
+          shape=new_shape,
+          strides=None,
+          device=self._device,
+          handle=self._handle,
+          offset=self._offset,
         )
         ### END YOUR SOLUTION
 
@@ -282,23 +292,26 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        # Verify new_axes is valid
-        if len(new_axes) != len(self.shape):
-            raise ValueError(f"Length of new_axes {len(new_axes)} must match array dimensions {len(self.shape)}")
-        if sorted(new_axes) != list(range(len(self.shape))):
-            raise ValueError(f"new_axes {new_axes} must be a permutation of {tuple(range(len(self.shape)))}")
-            
-        # Create new shape and strides by applying the permutation
-        new_shape = tuple(self.shape[i] for i in new_axes)
-        new_strides = tuple(self.strides[i] for i in new_axes)
-        
-        # Return new array with permuted shape/strides but same memory
+        # can't index using a tuple, converting to a list
+        new_axes = list(new_axes)
+
+        # calculate new shape
+        old_shape = np.array(self._shape)
+        new_shape = old_shape[new_axes]
+        new_shape = tuple(new_shape)
+
+        # calculate new strides
+        old_strides = np.array(self._strides)
+        new_strides = old_strides[new_axes]
+        new_strides = tuple(new_strides)
+
+        # make the new NDArray
         return NDArray.make(
-            shape=new_shape,
-            strides=new_strides,
-            device=self.device,
-            handle=self._handle,
-            offset=self._offset
+          shape=new_shape,
+          strides=new_strides,
+          device=self._device,
+          handle=self._handle,
+          offset=self._offset,
         )
         ### END YOUR SOLUTION
 
@@ -323,40 +336,31 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        # Handle case where new_shape is an integer
-        if isinstance(new_shape, int):
-            new_shape = (new_shape,)
-        new_shape = tuple(new_shape)
-        
-        # Check that new shape is compatible for broadcasting
-        if len(new_shape) < len(self.shape):
-            raise ValueError(f"Can't broadcast array of shape {self.shape} to {new_shape}")
-            
-        # Left-pad current shape with ones to match new_shape length
-        curr_shape = (1,) * (len(new_shape) - len(self.shape)) + self.shape
-        curr_strides = (0,) * (len(new_shape) - len(self.shape)) + self.strides
-        
-        # Verify broadcasting is possible
+
+        # assertions to check compatibility of new shape
+        assert len(new_shape) == len(self._shape)
+
         for i in range(len(new_shape)):
-            if curr_shape[i] != 1 and curr_shape[i] != new_shape[i]:
-                raise ValueError(
-                    f"Can't broadcast shape {self.shape} to {new_shape}. "
-                    f"Dimension {i} must be equal or 1, got {curr_shape[i]} != {new_shape[i]}"
-                )
-        
-        # Create new strides - use 0 stride for broadcasted dimensions (size 1)
-        new_strides = tuple(
-            curr_strides[i] if curr_shape[i] != 1 else 0
-            for i in range(len(new_shape))
-        )
-        
-        # Return new array with broadcast shape and adjusted strides
+          assert self._shape[i] == 1 or new_shape[i] == self._shape[i]
+
+        # calculate new stride
+
+        # converting to list first because tuple object is immutable
+        old_strides = list(self._strides)
+
+        # inserting strides of size 0
+        for i in range(len(new_shape)):
+          if new_shape[i] != self._shape[i]:
+            old_strides[i] = 0
+
+        new_strides = tuple(old_strides)
+
+        # make and return new NDArray
         return NDArray.make(
-            shape=new_shape,
-            strides=new_strides,
-            device=self.device,
-            handle=self._handle,
-            offset=self._offset
+          shape=new_shape,
+          strides=new_strides,
+          device=self._device,
+          handle=self._handle,
         )
         ### END YOUR SOLUTION
 
@@ -424,27 +428,35 @@ class NDArray:
         assert len(idxs) == self.ndim, "Need indexes equal to number of dimensions"
 
         ### BEGIN YOUR SOLUTION
+
+        # Calculate new shape
         new_shape = []
+        for s in idxs:
+          dim_shape = (s.stop - s.start + s.step - 1) // s.step
+          new_shape.append(dim_shape)
+
+        new_shape = tuple(new_shape)
+
+        # calculate new stride
         new_strides = []
-        new_offset = self._offset
+        for i in range(len(idxs)):
+          stride = idxs[i].step * self._strides[i]
+          new_strides.append(stride)
 
-        for i, sl in enumerate(idxs):
-            # Get size of slice using (stop - start) / step
-            size = (sl.stop - sl.start) // sl.step
-            new_shape.append(size)
-            
-            # New stride is old stride multiplied by step
-            new_strides.append(self._strides[i] * sl.step)
-            
-            # Update offset based on starting position of slice
-            new_offset += self._strides[i] * sl.start
+        new_strides = tuple(new_strides)
 
+        # calculate new offset
+        new_offset = 0
+        for i in range(len(idxs)):
+          new_offset += idxs[i].start * self._strides[i]
+
+        # return array with new_shape, strides and offset
         return NDArray.make(
-            shape=tuple(new_shape),
-            strides=tuple(new_strides),
-            device=self.device,
-            handle=self._handle,
-            offset=new_offset
+          shape=new_shape,
+          strides=new_strides,
+          device=self._device,
+          handle=self._handle,
+          offset=new_offset,
         )
         ### END YOUR SOLUTION
 
