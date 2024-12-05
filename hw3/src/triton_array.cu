@@ -9,9 +9,6 @@
 namespace needle {
 namespace triton {
 
-#define BASE_THREAD_NUM 256
-
-#define TILE 4
 typedef float scalar_t;
 const size_t ELEM_SIZE = sizeof(scalar_t);
 
@@ -49,37 +46,6 @@ struct CudaShapeArray {
   size_t size;
 };
 
-struct CudaDims {
-  dim3 block, grid;
-};
-
-CudaDims CudaOneDim(size_t size) {
-  /**
-   * Utility function to get cuda dimensions for 1D call
-   */
-  CudaDims dim;
-  size_t num_blocks = (size + BASE_THREAD_NUM - 1) / BASE_THREAD_NUM;
-  dim.block = dim3(BASE_THREAD_NUM, 1, 1);
-  dim.grid = dim3(num_blocks, 1, 1);
-  return dim;
-}
-
-#define MAX_VEC_SIZE 8
-struct CudaVec {
-  uint32_t size;
-  int32_t data[MAX_VEC_SIZE];
-};
-
-CudaVec VecToCuda(const std::vector<int32_t>& x) {
-  CudaVec shape;
-  if (x.size() > MAX_VEC_SIZE) throw std::runtime_error("Exceeded CUDA supported max dimesions");
-  shape.size = x.size();
-  for (size_t i = 0; i < x.size(); i++) {
-    shape.data[i] = x[i];
-  }
-  return shape;
-}
-
 }  // namespace triton
 }  // namespace needle
 
@@ -89,7 +55,6 @@ PYBIND11_MODULE(triton_array, m) {
   using namespace triton;
 
   m.attr("__device_name__") = "triton";
-  m.attr("__tile_size__") = TILE;
 
   py::class_<CudaArray>(m, "Array")
       .def(py::init<size_t>(), py::return_value_policy::take_ownership)
