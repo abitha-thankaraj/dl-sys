@@ -1,3 +1,11 @@
+/* This is our implementation in CUDA, to be used as python binding
+ * for our Triton Kernel implementation.
+ *
+ * Primary purpose: 
+ *      To handle memory assignment on the GPU side
+ *      since we are not using torch/other libraries.
+ */
+
 #include <cuda_runtime.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -13,6 +21,13 @@ typedef float scalar_t;
 const size_t ELEM_SIZE = sizeof(scalar_t);
 
 struct CudaArray {
+  /* The goal of the CudaArray class is to allocate vectors
+   * in GPU memory.
+   *
+   * Attributes: 
+   *   1. size (number of elements in array)
+   *   2. ptr (pointer to the underlying memory of the array)
+   */
   CudaArray(const size_t size) {
     cudaError_t err = cudaMalloc(&ptr, size * ELEM_SIZE);
     if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err));
@@ -26,6 +41,13 @@ struct CudaArray {
 };
 
 struct CudaShapeArray {
+  /* The CudaShapeArray is similar to CudaArray,
+   * but only holds integer elements.
+   *
+   * Intended Use: to allocate GPU memory to hold the shape/strides of an array
+   * where element 0 = size in first dimension, 
+   *       element 1 = size in second dimension, etc.
+   */
   CudaShapeArray(const size_t size) {
     cudaError_t err = cudaMalloc(&ptr, size * sizeof(int32_t));
     if (err != cudaSuccess) {

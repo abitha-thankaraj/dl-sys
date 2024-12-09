@@ -27,6 +27,27 @@ def fill_kernel(
   n_elements,     
   BLOCK_SIZE: tl.constexpr,
 ):
+  """
+  Given a ptr to the array, and number of elements,
+  this kernel populates the array with the given scalar value.
+
+  Input:
+    out_ptr:
+      pointer to the output memory
+
+      NOTE: this is using our C++ memory implementation, so
+      needs to cast in tl.float32 in order for Triton to be
+      able to read the memory
+
+    val:
+      scalar value that the array will be populated with
+
+    n_elements:
+      Number of elements in the array
+
+    BLOCK_SIZE:
+      size of the GPU block/number of threads
+  """
   # Calculate the absolute position
   pid = tl.program_id(axis=0)
   block_start = pid * BLOCK_SIZE
@@ -59,6 +80,66 @@ def modify_structure_kernel(
   OP_TYPE: tl.constexpr,
   BLOCK_SIZE: tl.constexpr,
 ):
+  """
+  This kernel performs 3 operations (compressed into one Kernel 
+  to reduce code duplication since a lot of the operations are common
+  between them):
+    1. compact: copy the elements of the array into another array
+                making it contiguous/compact in memory
+    2. ewise_setitem: copy the elements of one array into another array
+                      respecting the shape/strides/offsets given
+    3. scalar_setitem: use a scalar to populate the elements in the
+                       output array, respecting the shape/strides/offsets given
+
+  Input:
+    input_ptr:
+      pointer to the input memory
+
+      NOTE: this is using our C++ memory implementation, so
+      needs to cast in tl.float32 in order for Triton to be
+      able to read the memory
+
+    output_ptr:
+      pointer to the output memory
+
+      NOTE: this is using our C++ memory implementation, so
+      needs to cast in tl.float32 in order for Triton to be
+      able to read the memory
+
+    shape_ptr:
+      pointer to an array, holding the shape informating of the array
+
+      NOTE: this is using our C++ memory implementation, so needs
+      to be cast to tl.int32 for triton to be able to read the memory
+
+    stride_ptr:
+      pointer to an array, holding the stride informating of the array
+
+      NOTE: this is using our C++ memory implementation, so needs
+      to be cast to tl.int32 for triton to be able to read the memory
+
+    n_elements:
+      Number of elements in the array
+
+    n_dims:
+      Number of dimensions, which is also the length of the shape/stride
+      array
+
+    offset:
+      Offset from which we have to start the operation 
+
+    scalar_val:
+      scalar value that will be used to populate the array
+
+      NOTE: this is only used when we are using this kernel for 
+      scalar_setitem
+
+    OP_TYPE:
+      operation type, used to switch between compact / ewise_setitem / scalar_setitem
+
+    BLOCK_SIZE:
+      size of the GPU block/number of threads
+  """
   # Get program ID
   pid = tl.program_id(0)
     
@@ -102,14 +183,17 @@ def modify_structure_kernel(
         previous_size = current_size
             
       # Load and store value
+      # Compact operation
       if OP_TYPE == OP_TYPE_COMPACT:
         val = tl.load(input_ptr + input_offset)
         tl.store(output_ptr + i, val)
 
+      # Ewise setitem operation
       elif OP_TYPE == OP_TYPE_EWISE_SET_ITEM:
         val = tl.load(input_ptr + i)
         tl.store(output_ptr + input_offset, val)
 
+      # Scalar setitem operation
       elif OP_TYPE == OP_TYPE_SCALAR_SET_ITEM:
         tl.store(output_ptr + input_offset, scalar_val)
 

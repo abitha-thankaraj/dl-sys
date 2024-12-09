@@ -1,6 +1,7 @@
+# NDArray backend implementation using Triton Kernels
+
 import triton
 import numpy as np
-
 
 from .triton_array_structure_kernels import (
   fill_kernel,
@@ -33,6 +34,11 @@ TILE = 16
 
 
 def fill(out, val):
+  """
+  Given a pointer to the output and a scalar value,
+  fills all the elements of the output array
+  with the given scalar value.
+  """
   grid = (triton.cdiv(out.size, BLOCK_SIZE),)
   fill_kernel[grid](
     out_ptr=out.ptr(),
@@ -43,6 +49,9 @@ def fill(out, val):
 
 
 def ewise_add(a, b, out):
+  """
+  Elementwise addition
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   elementwise_binary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -54,7 +63,10 @@ def ewise_add(a, b, out):
   )
 
 
-def ewise_mul(a, b, out):    
+def ewise_mul(a, b, out):  
+  """
+  Elementwise multiplication
+  """  
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   elementwise_binary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -67,6 +79,9 @@ def ewise_mul(a, b, out):
 
 
 def ewise_div(a, b, out):
+  """
+  Elementwise division
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   elementwise_binary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -79,6 +94,10 @@ def ewise_div(a, b, out):
 
 
 def ewise_maximum(a, b, out):
+  """
+  Elementwise maximum
+  out[i] = max(a[i], b[i]) for all i
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   elementwise_binary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -91,6 +110,10 @@ def ewise_maximum(a, b, out):
 
 
 def ewise_eq(a, b, out):
+  """
+  Elementwise equality
+  out[i] = (a[i] == b[i]) for all i
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   elementwise_binary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -103,6 +126,10 @@ def ewise_eq(a, b, out):
 
 
 def ewise_ge(a, b, out):
+  """
+  Elementwise greater than or equal
+  out[i] = (a[i] >= b[i]) for all i
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   elementwise_binary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -115,6 +142,9 @@ def ewise_ge(a, b, out):
 
 
 def scalar_add(a, val, out):
+  """
+  Adds an scalar to all elements in a given array
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   scalar_binary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -127,6 +157,9 @@ def scalar_add(a, val, out):
 
 
 def scalar_mul(a, val, out):
+  """
+  Multiplies a scalar with all elements in a given array
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   scalar_binary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -139,6 +172,9 @@ def scalar_mul(a, val, out):
 
 
 def scalar_div(a, val, out):
+  """
+  Divides all elements of an array with a given scalar
+  """
   if val == 0:
     raise Exception("Division by zero not allowed!")
 
@@ -154,6 +190,9 @@ def scalar_div(a, val, out):
 
 
 def scalar_power(a, val, out):
+  """
+  out[i] = a[i]^val for all i
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   scalar_binary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -166,6 +205,9 @@ def scalar_power(a, val, out):
 
 
 def scalar_maximum(a, val, out):
+  """
+  out[i] = max(a[i], val) for all i
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   scalar_binary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -178,6 +220,9 @@ def scalar_maximum(a, val, out):
 
 
 def scalar_ge(a, val, out):
+  """
+  out[i] = (a[i] >= val) for all i
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   scalar_binary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -190,6 +235,9 @@ def scalar_ge(a, val, out):
 
 
 def scalar_eq(a, val, out):
+  """
+  out[i] = (a[i] == val) for all i
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   scalar_binary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -202,6 +250,9 @@ def scalar_eq(a, val, out):
 
 
 def ewise_exp(a, out):
+  """
+  out[i] = exp(a[i]) for all i
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   unary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -213,6 +264,9 @@ def ewise_exp(a, out):
 
 
 def ewise_log(a, out):
+  """
+  out[i] = log(a[i]) for all i
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   unary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -224,6 +278,9 @@ def ewise_log(a, out):
 
 
 def ewise_tanh(a, out):
+  """
+  out[i] = tanh(a[i]) for all i
+  """
   grid = (triton.cdiv(a.size, BLOCK_SIZE),)
   unary_op_kernel[grid](
     ptr_a=a.ptr(),
@@ -235,7 +292,16 @@ def ewise_tanh(a, out):
 
 
 def compact(a, out, shape, strides, offset):
+  """
+  out = compact version of a, i.e., the memory is in
+        contiguous form
+
+  NOTE: Shape/stride can have arbitrary length,
+        And Triton does not support passing tuples as argument
+        due to the requirements of jit
+  """
   # create and host the shape array
+  # This is done so that triton can read the shape objects
   shapeArray = ShapeArray(len(shape))
   shape = np.ascontiguousarray(np.array(shape, dtype=np.int32))
   shape_array_from_numpy(shape, shapeArray)
@@ -262,6 +328,14 @@ def compact(a, out, shape, strides, offset):
 
 
 def ewise_setitem(a, out, shape, strides, offset):
+  """
+  Elementwise set elements in out array, respecting
+  the shape/strides/offset, copy these elements from a
+
+  NOTE: Shape/stride can have arbitrary length,
+        And Triton does not support passing tuples as argument
+        due to the requirements of jit
+  """
   # create and host the shape array
   shapeArray = ShapeArray(len(shape))
   shape = np.ascontiguousarray(np.array(shape, dtype=np.int32))
@@ -296,6 +370,15 @@ def ewise_setitem(a, out, shape, strides, offset):
 
 
 def scalar_setitem(size, val, out, shape, strides, offset):
+  """
+  Elementwise set elements in out array, respecting
+  the shape/strides/offset, copied elements should be equal to
+  the scalar val
+
+  NOTE: Shape/stride can have arbitrary length,
+        And Triton does not support passing tuples as argument
+        due to the requirements of jit
+  """
   # create and host the shape array
   shapeArray = ShapeArray(len(shape))
   shape = np.ascontiguousarray(np.array(shape, dtype=np.int32))
@@ -330,6 +413,12 @@ def scalar_setitem(size, val, out, shape, strides, offset):
 
 
 def reduce_max(a, out, reduce_size):
+  """
+  Takes each (reduce_size) number of elements of a,
+  calculates the maximum, and sets the corresponding element in out.
+
+  I.e.: out[i] = maximum(a[i * reduce_size : (i + 1) * reduce_size])
+  """
   n_rows = a.size // reduce_size
   assert n_rows == out.size
     
@@ -343,12 +432,17 @@ def reduce_max(a, out, reduce_size):
     n_rows=int(n_rows),
     reduce_size=int(reduce_size),
     OP_TYPE=REDUCTION_OPERATION_MAP["REDUCE_MAX"],
-    BLOCK_SIZE=BLOCK_SIZE,
     REDUCE_SIZE_PER_BLOCK=REDUCE_SIZE_PER_BLOCK,
   )
 
 
 def reduce_sum(a, out, reduce_size):
+  """
+  Takes each (reduce_size) number of elements of a,
+  calculates the summation, and sets the corresponding element in out.
+
+  I.e.: out[i] = sum(a[i * reduce_size : (i + 1) * reduce_size])
+  """
   n_rows = a.size // reduce_size
   assert n_rows == out.size
     
@@ -364,12 +458,22 @@ def reduce_sum(a, out, reduce_size):
     n_rows=int(n_rows),
     reduce_size=int(reduce_size),
     OP_TYPE=REDUCTION_OPERATION_MAP["REDUCE_SUM"],
-    BLOCK_SIZE=BLOCK_SIZE,
     REDUCE_SIZE_PER_BLOCK=REDUCE_SIZE_PER_BLOCK,
   )
 
 
 def matmul(a, b, out, m, n, p):
+  """
+  Performs matrix multiplication of 2D arrays
+  
+  Inputs:
+    a: first matrix, of shape m x n
+    b: second matrix, of shape n x p
+    out: output matrix, of shape m x p
+    m: first dimension size of a
+    n: second dimension size of a
+    p: second dimension size of b
+  """
   # Compute grid
   grid = (
     (m + TILE - 1) // TILE,

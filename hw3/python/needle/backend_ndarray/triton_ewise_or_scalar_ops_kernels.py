@@ -41,6 +41,42 @@ def elementwise_binary_op_kernel(
   op: tl.constexpr,
   BLOCK_SIZE: tl.constexpr,
 ):
+  """
+  Performs elementwise operation between two
+  array, a and b, and stores the result in output array.
+
+  Input:
+    ptr_a:
+      Pointer to array a.
+
+      NOTE: this is using our C++ memory implementation, so
+      needs to cast in tl.float32 in order for Triton to be
+      able to read the memory
+
+    ptr_b:
+      Pointer to array b
+
+      NOTE: this is using our C++ memory implementation, so
+      needs to cast in tl.float32 in order for Triton to be
+      able to read the memory
+
+    ptr_out:
+      Pointer to the output array
+
+      NOTE: this is using our C++ memory implementation, so
+      needs to cast in tl.float32 in order for Triton to be
+      able to read the memory
+
+    n_elements:
+      Number of elements in the array
+
+    op:
+      operation type, used to switch between different types
+      of binary operation (eg., addition, multiplication etc.)
+
+    BLOCK_SIZE:
+      size of the GPU block/number of threads
+  """
   # Calculate the absolute position
   pid = tl.program_id(axis=0)
   block_start = pid * BLOCK_SIZE
@@ -113,6 +149,38 @@ def scalar_binary_op_kernel(
   op: tl.constexpr,
   BLOCK_SIZE: tl.constexpr,
 ):
+  """
+  Performs elementwise operation between elements of an array, a,
+  and a scalar value, val, and stores the result in output array.
+
+  Input:
+    ptr_a:
+      Pointer to array a.
+
+      NOTE: this is using our C++ memory implementation, so
+      needs to cast in tl.float32 in order for Triton to be
+      able to read the memory
+
+    ptr_out:
+      Pointer to the output array
+
+      NOTE: this is using our C++ memory implementation, so
+      needs to cast in tl.float32 in order for Triton to be
+      able to read the memory
+
+    val:
+      Scalar value that is to be used for the intended operation
+
+    n_elements:
+      Number of elements in the array
+
+    op:
+      operation type, used to switch between different types
+      of binary operation (eg., addition, multiplication etc.)
+
+    BLOCK_SIZE:
+      size of the GPU block/number of threads
+  """
   # Calculate the absolute position
   pid = tl.program_id(axis=0)
   block_start = pid * BLOCK_SIZE
@@ -209,6 +277,35 @@ def unary_op_kernel(
   op: tl.constexpr,
   BLOCK_SIZE: tl.constexpr,
 ):
+  """
+  Performs elementwise unary operations on an array, a,
+  and stores the result in output array.
+
+  Input:
+    ptr_a:
+      Pointer to array a.
+
+      NOTE: this is using our C++ memory implementation, so
+      needs to cast in tl.float32 in order for Triton to be
+      able to read the memory
+
+    ptr_out:
+      Pointer to the output array
+
+      NOTE: this is using our C++ memory implementation, so
+      needs to cast in tl.float32 in order for Triton to be
+      able to read the memory
+
+    n_elements:
+      Number of elements in the array
+
+    op:
+      operation type, used to switch between different types
+      of binary operation (eg., exp, log etc.)
+
+    BLOCK_SIZE:
+      size of the GPU block/number of threads
+  """
   # Calculate the absolute position
   pid = tl.program_id(axis=0)
   block_start = pid * BLOCK_SIZE

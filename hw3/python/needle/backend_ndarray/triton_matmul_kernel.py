@@ -22,6 +22,62 @@ def matmul_kernel(
     stride_cp,
     BLOCK_SIZE: tl.constexpr,
 ):
+    """
+    Performs matrix multiplication between two matrices,
+    a and b, and stores the result in a third matrix, c
+
+    Input:
+      a_ptr:
+        Pointer to matrix a, of shape M x N
+
+        NOTE: this is using our C++ memory implementation, so
+        needs to cast in tl.float32 in order for Triton to be
+        able to read the memory
+
+      b_ptr:
+        Pointer to matrix b, of shape N x P
+
+        NOTE: this is using our C++ memory implementation, so
+        needs to cast in tl.float32 in order for Triton to be
+        able to read the memory
+
+      c_ptr:
+        Pointer to matrix c, of shape M x P
+
+        NOTE: this is using our C++ memory implementation, so
+        needs to cast in tl.float32 in order for Triton to be
+        able to read the memory
+
+      M:
+        First dimension of matrix a
+      
+      N:
+        Second dimension of matrix a/first dimension of matrix b
+
+      P:
+        Second dimension of matrix b
+
+      stride_am:
+        Strides of the first dimension of matrix a
+
+      stride_an:
+        Strides of the second dimension of matrix a
+
+      stride_bn:
+        Strides of the first dimension of matrix b
+
+      stride_bp:
+        Strides of the second dimension of matrix b
+
+      stride_cm:
+        Strides of the first dimension of matrix c
+
+      stride_cp:
+        Stride of the second dimension of matrix c
+
+      BLOCK_SIZE:
+        size of the GPU block/number of threads
+    """
     # Program IDs
     pid_m = tl.program_id(0)  # Rows
     pid_n = tl.program_id(1)  # Columns
