@@ -22,7 +22,6 @@ def reduction_kernel(
   n_rows,
   reduce_size,
   OP_TYPE,
-  BLOCK_SIZE: tl.constexpr,
   REDUCE_SIZE_PER_BLOCK: tl.constexpr,
 ):
   """
